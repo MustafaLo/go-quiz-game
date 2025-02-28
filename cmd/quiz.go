@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"bufio"
 	"bytes"
 	"encoding/csv"
 	"fmt"
@@ -31,9 +32,26 @@ func parseCSV(data []byte)(*csv.Reader){
   return reader
 }
 
+func getProblems(reader *csv.Reader)([]problem, error){
+  problems := []problem{}
+
+  for {
+    record, err := reader.Read()
+    if err != nil{
+      if err == io.EOF{
+        return problems, nil
+      }
+      return nil, err
+    }
+
+    entry := problem{record[0], record[1]}
+    problems = append(problems, entry)
+  }
+}
+
 type problem struct{
-  problem string
-  solution int
+  question string
+  solution string
 }
 
 var problems_file string
@@ -43,27 +61,42 @@ var quizCmd = &cobra.Command{
   Short: "Start the Quiz Game",
   Long:  `This is an exercise from gopherexercises for a Quiz Game`,
   Run: func(cmd *cobra.Command, args []string) {
-    fmt.Println("Loading Quiz...")
-    
     csvBytes, err := readCSVFile(problems_file)
     if err != nil{
-      fmt.Println("Failed to parse CSV file: %v", err)
+      fmt.Printf("Failed to parse CSV file: %v", err)
+      return
     }
 
     csvReader := parseCSV(csvBytes)
+    problems, err := getProblems(csvReader)
+    if err != nil{
+      fmt.Printf("Failed to get problems: %v", err)
+      return
+    }
 
-    for {
-      record, err := csvReader.Read()
+    score := 0
+    scanner := bufio.NewScanner(os.Stdin)
+    for index, entry := range problems{
+      fmt.Printf("%d. %s", index, entry.question)
+      fmt.Print("\nEnter answer: ")
+
+      scanner.Scan()
+      err := scanner.Err()
       if err != nil{
-        if err == io.EOF{
-          break
-        }
-        fmt.Println("Error while reading CSV file: %v", err)
+        fmt.Printf("Failed to read input: %v", err)
         return
       }
 
-      fmt.Println(record)
+      answer := scanner.Text()
+      if answer == entry.solution{
+        score += 1
+      }
+      fmt.Println()
     }
+
+    fmt.Printf("You scored %d out of %d problems right!", score, len(problems))
+
+
   },
 }
 
