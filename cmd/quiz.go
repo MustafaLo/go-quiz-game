@@ -55,6 +55,7 @@ type problem struct{
 }
 
 var problems_file string
+var timer int
 
 var quizCmd = &cobra.Command{
   Use:   "quiz",
@@ -102,5 +103,6 @@ var quizCmd = &cobra.Command{
 
 func init(){
   quizCmd.Flags().StringVarP(&problems_file, "problems", "p", "problems.csv", "Problems")
+  quizCmd.Flags().IntVarP(&timer, "timer", "t", 30, "Timer for the quiz game")
 }
 
