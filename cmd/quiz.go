@@ -37,7 +37,6 @@ type problem struct{
 }
 
 var problems_file string
-var problems 
 
 var quizCmd = &cobra.Command{
   Use:   "quiz",
