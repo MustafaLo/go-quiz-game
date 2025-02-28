@@ -50,37 +50,51 @@ func getProblems(reader *csv.Reader) ([]problem, error) {
 	}
 }
 
+func getUserInput(scanner *bufio.Scanner, userInput chan bool)(){
+  scanner.Scan()
+  userInput <- true
+}
+
+
 func startQuiz(problems []problem)(){
   scanner := bufio.NewScanner(os.Stdin)
   correct := 0
+
   
   for index, entry := range problems {
     fmt.Printf("%d. %s", index, entry.question)
     fmt.Print("\nEnter answer: ")
 
-    scanner.Scan()
-    err := scanner.Err()
-    if err != nil {
-      fmt.Printf("Failed to read input: %v", err)
-    }
+    userInput := make(chan bool)
+    go getUserInput(scanner, userInput)
 
-    answer := scanner.Text()
-    if answer == entry.solution {
-      correct += 1
-      score <- correct
+    select{
+      case <- done:
+        return
+      case <- userInput:
+        err := scanner.Err()
+        if err != nil {
+          fmt.Printf("Failed to read input: %v", err)
+        }
+    
+        answer := scanner.Text()
+        if answer == entry.solution {
+          correct += 1
+          score <- correct
+        }
+        fmt.Println()
     }
-    fmt.Println()
   }
 
   done <- true
-
 }
 
-// func startTimer()(bool){
-// 	timer := time.NewTimer(time.Duration(limit) * time.Second)
-//   <-timer.C
-//   return true
-// }
+func startTimer(){
+	timer := time.NewTimer(time.Duration(limit) * time.Second)
+  <-timer.C
+  done <- true
+  fmt.Println("Times up!")
+}
 
 type problem struct {
 	question string
@@ -112,21 +126,14 @@ var quizCmd = &cobra.Command{
 		}
 
     done = make(chan bool)
-
     score = make(chan int)
-    startQuiz(problems)
 
+    go startQuiz(problems)
+    go startTimer()
 
-    select{
-      case <- done:
-        fmt.Println("Done!")
-      case <-time.After(time.Duration(limit) * time.Second):
-        fmt.Println("Time's Up!")
-    }
+    <- done
 
     fmt.Printf("You scored %d out of %d problems right!", <-score, len(problems))
-
-
 
 
 	},
@@ -134,5 +141,5 @@ var quizCmd = &cobra.Command{
 
 func init() {
 	quizCmd.Flags().StringVarP(&problems_file, "problems", "p", "problems.csv", "Problems")
-	quizCmd.Flags().IntVarP(&limit, "limit", "l", 30, "Timer for the quiz game")
+	quizCmd.Flags().IntVarP(&limit, "limit", "l", 2, "Timer for the quiz game")
 }
