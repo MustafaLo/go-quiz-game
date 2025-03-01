@@ -50,51 +50,21 @@ func getProblems(reader *csv.Reader) ([]problem, error) {
 	}
 }
 
-func getUserInput(scanner *bufio.Scanner, userInput chan bool)(){
+func getUserInput(scanner *bufio.Scanner, userInput chan string)(){
   scanner.Scan()
-  userInput <- true
+  userInput <- scanner.Text()
 }
 
 
-func startQuiz(problems []problem)(){
-  scanner := bufio.NewScanner(os.Stdin)
-  correct := 0
+// func startQuiz(problems []problem)(){
+//   done <- true
+// }
 
-  
-  for index, entry := range problems {
-    fmt.Printf("%d. %s", index, entry.question)
-    fmt.Print("\nEnter answer: ")
-
-    userInput := make(chan bool)
-    go getUserInput(scanner, userInput)
-
-    select{
-      case <- done:
-        return
-      case <- userInput:
-        err := scanner.Err()
-        if err != nil {
-          fmt.Printf("Failed to read input: %v", err)
-        }
-    
-        answer := scanner.Text()
-        if answer == entry.solution {
-          correct += 1
-          score <- correct
-        }
-        fmt.Println()
-    }
-  }
-
-  done <- true
-}
-
-func startTimer(){
-	timer := time.NewTimer(time.Duration(limit) * time.Second)
-  <-timer.C
-  done <- true
-  fmt.Println("Times up!")
-}
+// func startTimer(){
+//   <-timer.C
+//   done <- true
+//   fmt.Println("Times up!")
+// }
 
 type problem struct {
 	question string
@@ -103,8 +73,6 @@ type problem struct {
 
 var problems_file string
 var limit int
-var done chan bool
-var score chan int
 
 var quizCmd = &cobra.Command{
 	Use:   "quiz",
@@ -125,15 +93,32 @@ var quizCmd = &cobra.Command{
 			return
 		}
 
-    done = make(chan bool)
-    score = make(chan int)
+    scanner := bufio.NewScanner(os.Stdin)
+    correct := 0
+    timer := time.NewTimer(time.Duration(limit) * time.Second)
 
-    go startQuiz(problems)
-    go startTimer()
+    problem_loop:
+      for index, entry := range problems {
+        fmt.Printf("%d. %s", index, entry.question)
+        fmt.Print("\nEnter answer: ")
+    
+        userInput := make(chan string)
+        go getUserInput(scanner, userInput)
+    
+        select{
+          case <- timer.C:
+            fmt.Println("\nTimes Up!")
+            break problem_loop
+          case answer := <- userInput:
+            if answer == entry.solution {
+              correct += 1
+            }
+            fmt.Println()
+        }
+      }
 
-    <- done
 
-    fmt.Printf("You scored %d out of %d problems right!", <-score, len(problems))
+    fmt.Printf("\nYou scored %d out of %d problems right!", correct, len(problems))
 
 
 	},
